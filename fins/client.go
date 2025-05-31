@@ -44,6 +44,7 @@ func NewClient(localAddr, plcAddr Address) (*Client, error) {
 	go c.listenLoop()
 	return c, nil
 }
+
 // Set byte order
 // Default value: binary.BigEndian
 func (c *Client) SetByteOrder(o binary.ByteOrder) {
@@ -324,7 +325,8 @@ func checkIsWordMemoryArea(memoryArea byte) bool {
 	if memoryArea == MemoryAreaDMWord ||
 		memoryArea == MemoryAreaARWord ||
 		memoryArea == MemoryAreaHRWord ||
-		memoryArea == MemoryAreaWRWord {
+		memoryArea == MemoryAreaWRWord ||
+		memoryArea == MemoryAreaCIOWord {
 		return true
 	}
 	return false
