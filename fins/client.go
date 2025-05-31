@@ -279,29 +279,87 @@ func (c *Client) incrementSid() byte {
 
 // logFinsCommand logs the FINS command packet details for debugging purposes
 func logFinsCommand(header *Header, command []byte, packet []byte) {
-	// Format header information
-	headerInfo := fmt.Sprintf("FINS Command - SID: %d, Source: %+v, Destination: %+v",
-		header.serviceID, header.src, header.dst)
+	fmt.Println("\nFINS Command Details:")
+	fmt.Println("+--------------+----------+----------------------------------------+")
+	fmt.Println("| Field        | Value    | Description                            |")
+	fmt.Println("+--------------+----------+----------------------------------------+")
 
-	// Format command details based on the command type
-	var cmdInfo string
+	fmt.Printf("| ICF          | %02X       | Information Control Field              |\n", packet[0])
+	fmt.Printf("| RSV          | %02X       | Reserved                               |\n", packet[1])
+	fmt.Printf("| GCT          | %02X       | Gateway Count                          |\n", packet[2])
+	fmt.Printf("| DNA          | %02X       | Destination Network Address            |\n", packet[3])
+	fmt.Printf("| DA1          | %02X       | Destination Node Address               |\n", packet[4])
+	fmt.Printf("| DA2          | %02X       | Destination Unit Address               |\n", packet[5])
+	fmt.Printf("| SNA          | %02X       | Source Network Address                 |\n", packet[6])
+	fmt.Printf("| SA1          | %02X       | Source Node Address                    |\n", packet[7])
+	fmt.Printf("| SA2          | %02X       | Source Unit Address                    |\n", packet[8])
+	fmt.Printf("| SID          | %02X       | Service ID                             |\n", packet[9])
+
 	if len(command) >= 2 {
 		cmdCode := binary.BigEndian.Uint16(command[0:2])
-		switch cmdCode {
-		case 0x0101:
-			cmdInfo = "Memory Area Read"
-		case 0x0102:
-			cmdInfo = "Memory Area Write"
-		case 0x0601:
-			cmdInfo = "Read Clock"
-		default:
-			cmdInfo = fmt.Sprintf("Command Code: 0x%04x", cmdCode)
+		cmdDesc := getCmdDescription(cmdCode)
+		fmt.Printf("| MRC          | %02X       | Main Request Code                      |\n", command[0])
+		fmt.Printf("| SRC          | %02X       | Sub-Request Code                       |\n", command[1])
+
+		if len(command) >= 6 && (cmdCode == 0x0101 || cmdCode == 0x0102) {
+			areaCode := command[2]
+			areaDesc := getMemoryAreaDescription(areaCode)
+			fmt.Printf("| Area Code    | %02X       | %-38s |\n", areaCode, areaDesc)
+
+			address := binary.BigEndian.Uint16(command[3:5])
+			fmt.Printf("| Address      | %02X %02X    | Address %d                           |\n",
+				command[3], command[4], address)
+
+			fmt.Printf("| Bit Address  | %02X       | %-38s |\n", command[5], getBitAddressDescription(areaCode, command[5]))
+
+			if len(command) >= 8 {
+				count := binary.BigEndian.Uint16(command[6:8])
+				fmt.Printf("| Count        | %02X %02X    | %d items                              |\n",
+					command[6], command[7], count)
+			}
 		}
 	}
 
-	// Log the packet details
-	fmt.Printf("Sending %s - %s\n", headerInfo, cmdInfo)
-	fmt.Printf("Raw data [%d bytes]: % x\n", len(packet), packet)
+	fmt.Println("+--------------+----------+----------------------------------------+")
+	fmt.Printf("Total packet size: %d bytes\n\n", len(packet))
+}
+
+func getCmdDescription(cmdCode uint16) string {
+	switch cmdCode {
+	case 0x0101:
+		return "Memory Area Read"
+	case 0x0102:
+		return "Memory Area Write"
+	case 0x0601:
+		return "Read Clock"
+	default:
+		return fmt.Sprintf("Command Code: 0x%04x", cmdCode)
+	}
+}
+
+func getMemoryAreaDescription(areaCode byte) string {
+	switch areaCode {
+	case 0x82:
+		return "D (Data Memory)"
+	case 0x80:
+		return "CIO (Channel Input Output)"
+	case 0x81:
+		return "W (Work Area)"
+	case 0x83:
+		return "H (Holding Area)"
+	case 0x89:
+		return "AR (Auxiliary Relay)"
+	default:
+		return fmt.Sprintf("Area code: 0x%02X", areaCode)
+	}
+}
+
+func getBitAddressDescription(areaCode byte, bitAddr byte) string {
+	if areaCode == MemoryAreaDMBit || areaCode == MemoryAreaARBit ||
+		areaCode == MemoryAreaHRBit || areaCode == MemoryAreaWRBit {
+		return fmt.Sprintf("Bit %d", bitAddr)
+	}
+	return "Word access"
 }
 
 func (c *Client) sendCommand(command []byte) (*response, error) {
