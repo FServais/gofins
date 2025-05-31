@@ -44,6 +44,7 @@ func NewClient(localAddr, plcAddr Address) (*Client, error) {
 	go c.listenLoop()
 	return c, nil
 }
+
 // Set byte order
 // Default value: binary.BigEndian
 func (c *Client) SetByteOrder(o binary.ByteOrder) {
@@ -276,10 +277,41 @@ func (c *Client) incrementSid() byte {
 	return sid
 }
 
+// logFinsCommand logs the FINS command packet details for debugging purposes
+func logFinsCommand(header *Header, command []byte, packet []byte) {
+	// Format header information
+	headerInfo := fmt.Sprintf("FINS Command - SID: %d, Source: %+v, Destination: %+v",
+		header.serviceID, header.src, header.dst)
+
+	// Format command details based on the command type
+	var cmdInfo string
+	if len(command) >= 2 {
+		cmdCode := binary.BigEndian.Uint16(command[0:2])
+		switch cmdCode {
+		case 0x0101:
+			cmdInfo = "Memory Area Read"
+		case 0x0102:
+			cmdInfo = "Memory Area Write"
+		case 0x0601:
+			cmdInfo = "Read Clock"
+		default:
+			cmdInfo = fmt.Sprintf("Command Code: 0x%04x", cmdCode)
+		}
+	}
+
+	// Log the packet details
+	fmt.Printf("Sending %s - %s\n", headerInfo, cmdInfo)
+	fmt.Printf("Raw data [%d bytes]: % x\n", len(packet), packet)
+}
+
 func (c *Client) sendCommand(command []byte) (*response, error) {
 	header := c.nextHeader()
 	bts := encodeHeader(*header)
 	bts = append(bts, command...)
+
+	// Call the logging function before sending
+	logFinsCommand(header, command, bts)
+
 	_, err := (*c.conn).Write(bts)
 	if err != nil {
 		return nil, err
