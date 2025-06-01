@@ -336,7 +336,8 @@ func checkIsBitMemoryArea(memoryArea byte) bool {
 	if memoryArea == MemoryAreaDMBit ||
 		memoryArea == MemoryAreaARBit ||
 		memoryArea == MemoryAreaHRBit ||
-		memoryArea == MemoryAreaWRBit {
+		memoryArea == MemoryAreaWRBit ||
+		memoryArea == MemoryAreaCIOBit {
 		return true
 	}
 	return false
